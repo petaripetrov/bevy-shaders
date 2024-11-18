@@ -129,6 +129,7 @@ fn snake_movement_input(
 
 fn snake_movement(
     segments: ResMut<SnakeSegments>,
+    mut last_tail_position: ResMut<LastTailPosition>,
     mut heads: Query<(Entity, &SnakeHead)>,
     mut positions: Query<&mut Position>,
 ) {
@@ -157,12 +158,47 @@ fn snake_movement(
             }
         };
 
+        *last_tail_position = LastTailPosition(Some(*segments_positions.last().unwrap()));
+
         segments_positions
             .iter()
             .zip(segments.0.iter().skip(1))
             .for_each(|(pos, segment)| {
                 *positions.get_mut(*segment).unwrap() = *pos;
             });
+    }
+}
+
+#[derive(Event)]
+struct GrowthEvent;
+
+#[derive(Resource, Default)]
+struct LastTailPosition(Option<Position>);
+
+fn snake_eating(
+    mut commands: Commands,
+    mut growth_writer: EventWriter<GrowthEvent>,
+    food_positions: Query<(Entity, &Position), With<Food>>,
+    head_positions: Query<&Position, With<SnakeHead>>
+) {
+    for pos in head_positions.iter() {
+        for (ent, food_pos) in food_positions.iter() {
+            if food_pos == pos {
+                commands.entity(ent).despawn();
+                growth_writer.send(GrowthEvent);
+            }
+        }
+    }
+}
+
+fn snake_growth(
+    commands: Commands,
+    last_tail_position: Res<LastTailPosition>,
+    mut segments: ResMut<SnakeSegments>,
+    mut growth_reader: EventReader<GrowthEvent>,
+) {
+    if growth_reader.read().next().is_some() {
+        segments.0.push(spawn_segment(commands, last_tail_position.0.unwrap()))
     }
 }
 
@@ -225,14 +261,21 @@ fn main() {
             }),
             ..Default::default()
         }))
+        .add_event::<GrowthEvent>()
         .insert_resource(SnakeSegments::default())
+        .insert_resource(LastTailPosition::default())
         .insert_resource(ClearColor(Color::srgb(0.04, 0.04, 0.04)))
         .add_systems(
             Update,
             (
-                snake_movement_input.before(snake_movement),
                 snake_movement.run_if(on_timer(Duration::from_secs_f32(0.150))),
                 food_spawner.run_if(on_timer(Duration::from_secs_f32(1.0))),
+                snake_growth,
+
+                // Constraints
+                snake_movement_input.before(snake_movement),
+                snake_eating.after(snake_movement),
+                snake_growth.after(snake_eating),
             ),
         )
         .add_systems(Startup, (setup_camera, spawn_snake))
