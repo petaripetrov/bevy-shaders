@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 bevy = { version = "0.14.2", features = ["dynamic_linking"] }
+bevy_egui = "0.29.0"
 rand = "0.8.5"
 
 # Optimize our code a bit in dev profile
