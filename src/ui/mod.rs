@@ -1,7 +1,6 @@
 /**
  * TODO
  *  - Make UI state serializable
- *  - Try adding the UI state to the plugin struct directly
  */
 use bevy::{
     app::{Plugin, Update},
