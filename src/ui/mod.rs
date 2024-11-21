@@ -1,12 +1,31 @@
+/**
+ * TODO
+ *  - Make UI state serializable
+ *  - Try adding the UI state to the plugin struct directly
+ */
 use bevy::{
     app::{Plugin, Update},
     prelude::Commands,
 };
-use bevy_egui::{egui, EguiContexts, EguiPlugin};
+use bevy_egui::{
+    egui, EguiContexts, EguiPlugin
+};
+
+#[derive(Default, Debug, Clone, PartialEq, Eq, Hash)]
+enum RendererState {
+    #[default]
+    Basic,
+    Toon,
+    PBR,
+}
 
 #[derive(Default)]
-struct EguiState {
+struct UIState {
     drag_control: f32,
+    renderer: RendererState,
+    color: [u8; 3], // replace this with a Material struct that holds all of the
+                    // necessary material properties
+                    // and that gets shipped off to the GPU 
 }
 
 pub struct UIPlugin;
@@ -16,31 +35,52 @@ impl Plugin for UIPlugin {
         // Init EGUI
         app.add_plugins(EguiPlugin);
 
-        let mut ui_state = EguiState { drag_control: 1.0 };
+        let mut ui_state = UIState {
+            drag_control: 1.0,
+            ..Default::default()
+        };
 
-        app.add_systems(Update, move |ui: EguiContexts, cmd: Commands| {
-            spawn_ui(ui, cmd, &mut ui_state)
-        });
+        let ui_closure = move |ui: EguiContexts, cmd: Commands| spawn_ui(ui, cmd, &mut ui_state);
+
+        app.add_systems(Update, ui_closure);
     }
 }
 
 // EguiContexts is an alias for a Query type
-fn spawn_ui(mut egui_context: EguiContexts, mut _commands: Commands, egui_state: &mut EguiState) {
+fn spawn_ui(mut egui_context: EguiContexts, mut _commands: Commands, egui_state: &mut UIState) {
     if let Some(context) = egui_context.try_ctx_mut() {
         egui::Window::new("Render Controls")
             .vscroll(false)
             .resizable(true)
-            // .default_size([250.0, 150.0])
             .show(context, |ui| {
-                ui.label("Test");
+                egui::ComboBox::from_label("Renderer")
+                    .selected_text(format!("{:?}", egui_state.renderer))
+                    .show_ui(ui, |ui| {
+                        ui.selectable_value(
+                            &mut egui_state.renderer,
+                            RendererState::Basic,
+                            "Basic",
+                        );
+                        ui.selectable_value(&mut egui_state.renderer, RendererState::Toon, "Toon");
+                        ui.selectable_value(&mut egui_state.renderer, RendererState::PBR, "PBR");
+                    });
 
-                ui.horizontal(|ui| {
-                    ui.add(
-                        egui::DragValue::new(&mut egui_state.drag_control)
-                            .speed(1.0)
-                            .range(-5.0..=5.0),
-                    )
-                });
+                match egui_state.renderer {
+                    RendererState::Basic => {
+                        ui.horizontal(|ui| {
+                            ui.label("Kd value");
+                            ui.color_edit_button_srgb(&mut egui_state.color);
+                        });
+
+                        ui.add(
+                            egui::DragValue::new(&mut egui_state.drag_control)
+                                .speed(1.0)
+                                .range(-5.0..=5.0),
+                        );
+                    }
+                    RendererState::Toon => {}
+                    RendererState::PBR => {}
+                }
 
                 ui.allocate_space(ui.available_size());
             });
