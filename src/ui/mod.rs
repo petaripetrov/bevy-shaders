@@ -1,27 +1,34 @@
-use std::{fs::File, io::{BufReader, BufWriter}, ops::Deref};
 use serde::{Deserialize, Serialize};
+use std::{
+    fs::File,
+    io::{BufReader, BufWriter},
+};
 
 use bevy::{
-    app::{Plugin, Update}, log::{error, info, warn}, prelude::{on_event, Commands, IntoSystemConfigs, Res, ResMut, Resource}, window::WindowCloseRequested
+    app::{Plugin, Update},
+    log::{error, info, warn},
+    prelude::{
+        in_state, on_event, AppExtStates, EventReader, IntoSystemConfigs, NextState, Res, ResMut, Resource, State, StateTransitionEvent, States
+    },
+    window::WindowCloseRequested,
 };
 use bevy_egui::{egui, EguiContexts, EguiPlugin};
 
-#[derive(Default, Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Default, States, Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum RendererState {
     #[default]
     Basic,
     Toon,
-    PBR,
+    Pbr,
 }
 
-#[derive(Default, Serialize, Deserialize)]
+#[derive(Default, Resource, Serialize, Deserialize, Clone, Copy)]
 struct MaterialSettings {
     color: [u8; 3],
 }
 
-#[derive(Resource, Default, Serialize, Deserialize)]
+#[derive(Default, Serialize, Deserialize)]
 struct UIState {
-    drag_control: f32,
     renderer: RendererState,
     material: MaterialSettings,
 }
@@ -33,7 +40,6 @@ impl Plugin for UIPlugin {
         // Init EGUI
         app.add_plugins(EguiPlugin);
         // app.state
-
         let file = File::open("ui_state.json");
 
         if let Ok(f) = file {
@@ -41,22 +47,28 @@ impl Plugin for UIPlugin {
             let ui_state = serde_json::from_reader::<_, UIState>(reader);
 
             match ui_state {
-                Ok(state) => app.insert_resource(state),
+                Ok(state) => {
+                    app.insert_resource(state.material);
+                    app.insert_state(state.renderer);
+                }
                 Err(_) => {
-                    warn!("Could not fid UI State settings. Initializing with empty state");
-                    app.init_resource::<UIState>()
+                    warn!("Could not find UI State settings. Initializing with empty state");
+                    app.init_resource::<MaterialSettings>();
+                    app.init_state::<RendererState>();
                 }
             };
         } else {
             warn!("Could not open UI state settings. Initiaizing with empty state");
-            app.init_resource::<UIState>(); 
+            app.init_resource::<MaterialSettings>();
+            app.init_state::<RendererState>();
         }
-
 
         app.add_systems(
             Update,
             (
                 spawn_ui,
+                spawn_basic_ui.run_if(in_state(RendererState::Basic)),
+                log_transitions,
                 save_ui_state.run_if(on_event::<WindowCloseRequested>()),
             ),
         );
@@ -64,54 +76,87 @@ impl Plugin for UIPlugin {
 }
 
 // EguiContexts is an alias for a Query type
-fn spawn_ui(mut egui_context: EguiContexts, mut _commands: Commands, mut egui_state: ResMut<UIState>) {
-// TODO see if splitting up the UI can make sense. I.E. one function for the default UI, one for the Material, and one for each renderer.
+fn spawn_ui(
+    mut egui_context: EguiContexts,
+    state: Res<State<RendererState>>,
+    mut state_trans: ResMut<NextState<RendererState>>,
+) {
+    // TODO see if splitting up the UI can make sense. I.E. one function for the default UI, one for the Material, and one for each renderer.
     if let Some(context) = egui_context.try_ctx_mut() {
+        let mut curr_state = *state.get();
         egui::Window::new("Render Controls")
             .vscroll(false)
             .resizable(true)
-            .show(context, |ui| {
+            .show(context, move |ui| {
                 egui::ComboBox::from_label("Renderer")
-                    .selected_text(format!("{:?}", egui_state.renderer))
+                    .selected_text(format!("{:?}", curr_state))
                     .show_ui(ui, |ui| {
-                        ui.selectable_value(
-                            &mut egui_state.renderer,
-                            RendererState::Basic,
-                            "Basic",
-                        );
-                        ui.selectable_value(&mut egui_state.renderer, RendererState::Toon, "Toon");
-                        ui.selectable_value(&mut egui_state.renderer, RendererState::PBR, "PBR");
+                        if ui
+                            .selectable_value(&mut curr_state, RendererState::Basic, "Basic")
+                            .changed()
+                        {
+                            state_trans.set(RendererState::Basic);
+                        }
+
+                        if ui
+                            .selectable_value(&mut curr_state, RendererState::Toon, "Toon")
+                            .changed()
+                        {
+                            state_trans.set(RendererState::Toon);
+                        }
+
+                        if ui
+                            .selectable_value(&mut curr_state, RendererState::Pbr, "PBR")
+                            .changed()
+                        {
+                            state_trans.set(RendererState::Pbr);
+                        }
                     });
-
-                match egui_state.renderer {
-                    RendererState::Basic => {
-                        ui.horizontal(|ui| {
-                            ui.label("Kd value");
-                            ui.color_edit_button_srgb(&mut egui_state.material.color);
-                        });
-                    }
-                    RendererState::Toon => {}
-                    RendererState::PBR => {}
-                }
-
-                ui.allocate_space(ui.available_size());
             });
     }
 }
 
-fn save_ui_state(state: Res<UIState>) {
+fn spawn_basic_ui(mut egui_context: EguiContexts) {
+    if let Some(context) = egui_context.try_ctx_mut() {
+        egui::Window::new("Basic Renderer")
+            .vscroll(false)
+            .resizable(true)
+            .show(context, |ui| {
+                ui.label("Material")
+            });
+    }
+}
+
+fn save_ui_state(
+    material_settings: Res<MaterialSettings>,
+    renderer_state: Res<State<RendererState>>,
+) {
     let file = File::create("ui_state.json");
+    let state = UIState {
+        renderer: *renderer_state.get(), // rename to use the simple object builder
+        material: *material_settings,
+    };
 
     if let Ok(f) = file {
         let mut writer = BufWriter::new(f);
 
-        let write_res = serde_json::to_writer_pretty(&mut writer, state.deref());
+        let write_res = serde_json::to_writer_pretty(&mut writer, &state);
 
         match write_res {
             Ok(_) => info!("Successfully saved state, exiting application."),
-            Err(_) => error!("Could not write UI state to file. Aborting")
+            Err(_) => error!("Could not write UI state to file. Aborting"),
         };
     } else {
         error!("Could not create or open UI State file.");
+    }
+}
+
+/// print when an `AppState` transition happens
+fn log_transitions(mut transitions: EventReader<StateTransitionEvent<RendererState>>) {
+    for transition in transitions.read() {
+        info!(
+            "transition: {:?} => {:?}",
+            transition.exited, transition.entered
+        );
     }
 }
