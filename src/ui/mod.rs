@@ -66,8 +66,10 @@ impl Plugin for UIPlugin {
         app.add_systems(
             Update,
             (
-                spawn_ui,
+                spawn_ui.before(spawn_basic_ui),
+
                 spawn_basic_ui.run_if(in_state(RendererState::Basic)),
+
                 log_transitions,
                 save_ui_state.run_if(on_event::<WindowCloseRequested>()),
             ),
@@ -87,7 +89,7 @@ fn spawn_ui(
         egui::Window::new("Render Controls")
             .vscroll(false)
             .resizable(true)
-            .show(context, move |ui| {
+            .show(context, |ui| {
                 egui::ComboBox::from_label("Renderer")
                     .selected_text(format!("{:?}", curr_state))
                     .show_ui(ui, |ui| {
