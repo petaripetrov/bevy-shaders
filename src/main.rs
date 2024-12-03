@@ -1,10 +1,13 @@
 mod ui;
+mod camera;
 
 use bevy::{
     prelude::*,
     render::render_resource::{AsBindGroup, ShaderRef},
 };
+
 use ui::UIPlugin;
+use camera::CameraPlugin;
 
 // This struct defines the data that will be passed to our shader
 #[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
@@ -34,6 +37,7 @@ fn main() {
         .add_plugins((
             DefaultPlugins,
             UIPlugin,
+            CameraPlugin,
             MaterialPlugin::<CustomMaterial>::default(),
         ))
         .add_systems(Startup, setup)
@@ -48,10 +52,10 @@ fn setup(
     asset_server: Res<AssetServer>,
 ) {
     // camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(0.0, 0.7, 1.0).looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
-        ..default()
-    });
+    // commands.spawn(Camera3dBundle {
+    //     transform: Transform::from_xyz(0.0, 0.7, 1.0).looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
+    //     ..default()
+    // });
 
     commands.spawn(SceneBundle {
         scene: asset_server.load(GltfAssetLabel::Scene(0).from_asset("meshes/dragon.gltf")),
