@@ -1,9 +1,9 @@
-use bevy::{math::{Vec3, VectorSpace}, prelude::{Bundle, Camera3dBundle, Component, KeyCode}};
+use bevy::{math::Vec3, prelude::{Bundle, Component, KeyCode}};
 
 // Bundle to spawn custom camera easily
 #[derive(Bundle, Default)]
 pub struct CameraBundle {
-    pub camera: Camera3dBundle,
+    // pub camera: Camera3dBundle,
     pub state: CameraState,
     pub settings: CameraSettings
 }

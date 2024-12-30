@@ -6,13 +6,18 @@ use std::{
 
 use bevy::{
     app::{Plugin, Update},
+    asset::Assets,
     log::{error, info, warn},
+    math::Vec3,
     prelude::{
-        in_state, on_event, AppExtStates, EventReader, IntoSystemConfigs, NextState, Res, ResMut, Resource, State, StateTransitionEvent, States
+        in_state, on_event, AppExtStates, EventReader, IntoSystemConfigs, NextState, Res,
+        ResMut, Resource, State, StateTransitionEvent, States,
     },
     window::WindowCloseRequested,
 };
 use bevy_egui::{egui, EguiContexts, EguiPlugin};
+
+use crate::CustomMaterial;
 
 #[derive(Default, States, Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum RendererState {
@@ -23,8 +28,8 @@ enum RendererState {
 }
 
 #[derive(Default, Resource, Serialize, Deserialize, Clone, Copy)]
-struct MaterialSettings {
-    color: [u8; 3],
+pub struct MaterialSettings {
+    pub color: [f32; 3],
 }
 
 #[derive(Default, Serialize, Deserialize)]
@@ -67,11 +72,9 @@ impl Plugin for UIPlugin {
             Update,
             (
                 spawn_ui.before(spawn_basic_ui),
-
                 spawn_basic_ui.run_if(in_state(RendererState::Basic)),
-
                 log_transitions,
-                save_ui_state.run_if(on_event::<WindowCloseRequested>()),
+                save_ui_state.run_if(on_event::<WindowCloseRequested>),
             ),
         );
     }
@@ -118,13 +121,23 @@ fn spawn_ui(
     }
 }
 
-fn spawn_basic_ui(mut egui_context: EguiContexts) {
+fn spawn_basic_ui(
+    mut egui_context: EguiContexts,
+    mut material_settings: ResMut<MaterialSettings>,
+    mut materials: ResMut<Assets<CustomMaterial>>,
+) {
     if let Some(context) = egui_context.try_ctx_mut() {
         egui::Window::new("Basic Renderer")
             .vscroll(false)
             .resizable(true)
             .show(context, |ui| {
-                ui.label("Material")
+                ui.label("Material");
+
+                ui.color_edit_button_rgb(&mut material_settings.as_mut().color);
+
+                for (_, material) in materials.iter_mut() {
+                    material.color = Vec3::from_array(material_settings.color);
+                }
             });
     }
 }
