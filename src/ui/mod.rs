@@ -10,14 +10,13 @@ use bevy::{
     log::{error, info, warn},
     math::Vec3,
     prelude::{
-        in_state, on_event, AppExtStates, EventReader, IntoSystemConfigs, NextState, Res,
-        ResMut, Resource, State, StateTransitionEvent, States,
+        in_state, on_event, AppExtStates, EventReader, IntoSystemConfigs, NextState, Query, Res, ResMut, Resource, State, StateTransitionEvent, States, Transform, With
     },
     window::WindowCloseRequested,
 };
 use bevy_egui::{egui, EguiContexts, EguiPlugin};
 
-use crate::CustomMaterial;
+use crate::{LambertMaterial, Light};
 
 #[derive(Default, States, Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum RendererState {
@@ -44,7 +43,6 @@ impl Plugin for UIPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         // Init EGUI
         app.add_plugins(EguiPlugin);
-        // app.state
         let file = File::open("ui_state.json");
 
         if let Ok(f) = file {
@@ -72,6 +70,7 @@ impl Plugin for UIPlugin {
             Update,
             (
                 spawn_ui.before(spawn_basic_ui),
+                spawn_light_ui,
                 spawn_basic_ui.run_if(in_state(RendererState::Basic)),
                 log_transitions,
                 save_ui_state.run_if(on_event::<WindowCloseRequested>),
@@ -86,7 +85,6 @@ fn spawn_ui(
     state: Res<State<RendererState>>,
     mut state_trans: ResMut<NextState<RendererState>>,
 ) {
-    // TODO see if splitting up the UI can make sense. I.E. one function for the default UI, one for the Material, and one for each renderer.
     if let Some(context) = egui_context.try_ctx_mut() {
         let mut curr_state = *state.get();
         egui::Window::new("Render Controls")
@@ -124,7 +122,7 @@ fn spawn_ui(
 fn spawn_basic_ui(
     mut egui_context: EguiContexts,
     mut material_settings: ResMut<MaterialSettings>,
-    mut materials: ResMut<Assets<CustomMaterial>>,
+    mut materials: ResMut<Assets<LambertMaterial>>,
 ) {
     if let Some(context) = egui_context.try_ctx_mut() {
         egui::Window::new("Basic Renderer")
@@ -139,6 +137,28 @@ fn spawn_basic_ui(
                     material.color = Vec3::from_array(material_settings.color);
                 }
             });
+    }
+}
+
+fn spawn_light_ui(
+    mut egui_context: EguiContexts,
+    mut query: Query<&mut Transform, With<Light>>,
+) {
+    if let Ok(mut transform) = query.get_single_mut() {
+        if let Some(context) = egui_context.try_ctx_mut() {
+            egui::Window::new("Light Controls")
+                .vscroll(false)
+                .resizable(true)
+                .show(context, |ui| {
+                    ui.label("Light");
+    
+                    ui.horizontal(|ui| {
+                        ui.add(egui::DragValue::new(&mut transform.translation.x).speed(0.05));
+                        ui.add(egui::DragValue::new(&mut transform.translation.y).speed(0.05));
+                        ui.add(egui::DragValue::new(&mut transform.translation.z).speed(0.05));
+                    })
+                });
+        }
     }
 }
 
