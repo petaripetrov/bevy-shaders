@@ -5,18 +5,13 @@ use std::{
 };
 
 use bevy::{
-    app::{Plugin, Update},
-    asset::Assets,
-    log::{error, info, warn},
-    math::Vec3,
-    prelude::{
+    app::{Plugin, Update}, log::{error, info, warn}, math::Vec3, prelude::{
         in_state, on_event, AppExtStates, EventReader, IntoSystemConfigs, NextState, Query, Res, ResMut, Resource, State, StateTransitionEvent, States, Transform, With
-    },
-    window::WindowCloseRequested,
+    }, window::WindowCloseRequested
 };
 use bevy_egui::{egui, EguiContexts, EguiPlugin};
 
-use crate::{LambertMaterial, Light};
+use crate::Light;
 
 #[derive(Default, States, Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum RendererState {
@@ -31,10 +26,18 @@ pub struct MaterialSettings {
     pub color: [f32; 3],
 }
 
+#[derive(Default, Resource, Serialize, Deserialize, Clone, Copy)]
+pub struct LightSettings {
+    pub pos: Vec3,
+    pub intensity: f32,
+}
+
+
 #[derive(Default, Serialize, Deserialize)]
 struct UIState {
     renderer: RendererState,
     material: MaterialSettings,
+    light: LightSettings,
 }
 
 pub struct UIPlugin;
@@ -52,17 +55,20 @@ impl Plugin for UIPlugin {
             match ui_state {
                 Ok(state) => {
                     app.insert_resource(state.material);
+                    app.insert_resource(state.light);
                     app.insert_state(state.renderer);
                 }
                 Err(_) => {
                     warn!("Could not find UI State settings. Initializing with empty state");
                     app.init_resource::<MaterialSettings>();
+                    app.init_resource::<LightSettings>();
                     app.init_state::<RendererState>();
                 }
             };
         } else {
             warn!("Could not open UI state settings. Initiaizing with empty state");
             app.init_resource::<MaterialSettings>();
+            app.init_resource::<LightSettings>();
             app.init_state::<RendererState>();
         }
 
@@ -122,7 +128,7 @@ fn spawn_ui(
 fn spawn_basic_ui(
     mut egui_context: EguiContexts,
     mut material_settings: ResMut<MaterialSettings>,
-    mut materials: ResMut<Assets<LambertMaterial>>,
+    // mut materials: ResMut<Assets<LambertMaterial>>,
 ) {
     if let Some(context) = egui_context.try_ctx_mut() {
         egui::Window::new("Basic Renderer")
@@ -133,15 +139,16 @@ fn spawn_basic_ui(
 
                 ui.color_edit_button_rgb(&mut material_settings.as_mut().color);
 
-                for (_, material) in materials.iter_mut() {
-                    material.color = Vec3::from_array(material_settings.color);
-                }
+                // for (_, material) in materials.iter_mut() {
+                //     material.color = Vec3::from_array(material_settings.color);
+                // }
             });
     }
 }
 
 fn spawn_light_ui(
     mut egui_context: EguiContexts,
+    mut light: ResMut<LightSettings>,
     mut query: Query<&mut Transform, With<Light>>,
 ) {
     if let Ok(mut transform) = query.get_single_mut() {
@@ -156,7 +163,9 @@ fn spawn_light_ui(
                         ui.add(egui::DragValue::new(&mut transform.translation.x).speed(0.05));
                         ui.add(egui::DragValue::new(&mut transform.translation.y).speed(0.05));
                         ui.add(egui::DragValue::new(&mut transform.translation.z).speed(0.05));
-                    })
+                    });
+
+                    ui.add(egui::DragValue::new(&mut light.intensity).speed(0.05));
                 });
         }
     }
@@ -164,12 +173,15 @@ fn spawn_light_ui(
 
 fn save_ui_state(
     material_settings: Res<MaterialSettings>,
+    light: Res<LightSettings>,
     renderer_state: Res<State<RendererState>>,
 ) {
     let file = File::create("ui_state.json");
     let state = UIState {
         renderer: *renderer_state.get(), // rename to use the simple object builder
+        
         material: *material_settings,
+        light: *light,
     };
 
     if let Ok(f) = file {

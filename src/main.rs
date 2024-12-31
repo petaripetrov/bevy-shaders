@@ -6,7 +6,7 @@ use bevy::{
     render::render_resource::{AsBindGroup, ShaderRef}, 
 };
 
-use ui::{MaterialSettings, UIPlugin};
+use ui::{LightSettings, MaterialSettings, UIPlugin};
 
 // This struct defines the data that will be passed to our shader
 #[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
@@ -15,6 +15,8 @@ struct LambertMaterial {
     color: Vec3,
     #[uniform(1)]
     light_pos: Vec3,
+    #[uniform(2)]
+    intensity: f32,
 }
 
 /// The Material trait is very configurable, but comes with sensible defaults for all methods.
@@ -70,6 +72,7 @@ fn setup(
         MeshMaterial3d(materials.add(LambertMaterial {
             color: Vec3::from_array(ui_mat.color),
             light_pos: Vec3::new(0.8, 1.0, 0.5),
+            intensity: 0.5,
         })),
         Transform::from_xyz(0.0, 0.5, 0.0),
     ));
@@ -100,11 +103,13 @@ fn spawn_light(
 
 fn set_light_pos(
     mut materials: ResMut<Assets<LambertMaterial>>,
+    light: Res<LightSettings>,
     query: Query<&Transform, With<Light>>,
 ) {
     if let Ok(transform) = query.get_single() {
         for (_, material) in materials.iter_mut() {
             material.light_pos = transform.translation;
+            material.intensity = light.intensity;
         }
     }
 }

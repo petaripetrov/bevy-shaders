@@ -46,11 +46,10 @@ struct FragmentInput {
 
 @group(2) @binding(0) var<uniform> color: vec3<f32>;
 @group(2) @binding(1) var<uniform> light_pos: vec3<f32>;
+@group(2) @binding(2) var<uniform> light_int: f32;
 
 @fragment
 fn fragment(input: FragmentInput) -> @location(0) vec4<f32> {
-    const light_int: f32 = 0.6;
-
     let normal = normalize(input.world_normal);
     let light_dir = normalize(light_pos - input.world_position);
     let diffuse = max(dot(normal, light_dir), 0.0) * light_int;
