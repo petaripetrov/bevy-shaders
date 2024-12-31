@@ -1,6 +1,6 @@
 // #import bevy_pbr::forward_io::VertexOutput
 // // we can import items from shader modules in the assets folder with a quoted path
-// #import "shaders/custom_material_import.wgsl"::COLOR_MULTIPLIER
+#import "shaders/util.wgsl"::diffuse
 
 #import bevy_pbr::mesh_functions::{get_world_from_local, mesh_position_local_to_clip}
 
@@ -37,23 +37,22 @@ struct FragmentInput {
     @location(1) world_normal: vec3<f32>,
 }
 
-// struct Light {
-//     position: vec3<f32>,
-//     color: vec3<f32>,
-//     intensity: f32,
-// };
-// @group(1) @binding(0) var<uniform> light: Light;
-
 @group(2) @binding(0) var<uniform> color: vec3<f32>;
 @group(2) @binding(1) var<uniform> light_pos: vec3<f32>;
 @group(2) @binding(2) var<uniform> light_int: f32;
 
 @fragment
 fn fragment(input: FragmentInput) -> @location(0) vec4<f32> {
-    let normal = normalize(input.world_normal);
-    let light_dir = normalize(light_pos - input.world_position);
-    let diffuse = max(dot(normal, light_dir), 0.0) * light_int;
-    let diff_col = color * diffuse;
+    // let normal = normalize(input.world_normal);
+    // let light_dir = normalize(light_pos - input.world_position);
+    // let diffuse = max(dot(normal, light_dir), 0.0) * light_int;
+    // let diff_col = color * diffuse;
+
+    let diff_col = diffuse(input.world_position, 
+                             input.world_normal,
+                             color,
+                             light_pos,
+                             light_int);
 
     return vec4(diff_col, 1.0);
 }
