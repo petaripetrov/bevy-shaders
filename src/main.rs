@@ -91,25 +91,29 @@ fn spawn_light(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<LightMaterial>>,
+    ui_light: Res<LightSettings>,
 ) {
     // Light mesh
     commands.spawn((
         Light,
         Mesh3d(meshes.add(Sphere { radius: 0.1 })),
         MeshMaterial3d(materials.add(LightMaterial {})),
-        Transform::from_xyz(0.8, 1.0, 0.5),
+        Transform::from_xyz(ui_light.pos[0], ui_light.pos[1], ui_light.pos[2]),
     ));
 }
 
 fn set_light_pos(
     mut materials: ResMut<Assets<LambertMaterial>>,
     light: Res<LightSettings>,
-    query: Query<&Transform, With<Light>>,
+    material_settings: Res<MaterialSettings>,
+    mut query: Query<&mut Transform, With<Light>>,
 ) {
-    if let Ok(transform) = query.get_single() {
+    if let Ok(mut transform) = query.get_single_mut() {
         for (_, material) in materials.iter_mut() {
-            material.light_pos = transform.translation;
+            *transform = transform.with_translation(light.pos.into());
+            material.light_pos = Vec3::from_array(light.pos);
             material.intensity = light.intensity;
+            material.color = material_settings.color.into();
         }
     }
 }

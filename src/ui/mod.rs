@@ -5,13 +5,15 @@ use std::{
 };
 
 use bevy::{
-    app::{Plugin, Update}, log::{error, info, warn}, math::Vec3, prelude::{
-        in_state, on_event, AppExtStates, EventReader, IntoSystemConfigs, NextState, Query, Res, ResMut, Resource, State, StateTransitionEvent, States, Transform, With
-    }, window::WindowCloseRequested
+    app::{Plugin, Update},
+    log::{error, info, warn},
+    prelude::{
+        in_state, on_event, AppExtStates, EventReader, IntoSystemConfigs, NextState, Res, ResMut,
+        Resource, State, StateTransitionEvent, States,
+    },
+    window::WindowCloseRequested,
 };
 use bevy_egui::{egui, EguiContexts, EguiPlugin};
-
-use crate::Light;
 
 #[derive(Default, States, Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum RendererState {
@@ -28,10 +30,9 @@ pub struct MaterialSettings {
 
 #[derive(Default, Resource, Serialize, Deserialize, Clone, Copy)]
 pub struct LightSettings {
-    pub pos: Vec3,
+    pub pos: [f32; 3],
     pub intensity: f32,
 }
-
 
 #[derive(Default, Serialize, Deserialize)]
 struct UIState {
@@ -125,11 +126,7 @@ fn spawn_ui(
     }
 }
 
-fn spawn_basic_ui(
-    mut egui_context: EguiContexts,
-    mut material_settings: ResMut<MaterialSettings>,
-    // mut materials: ResMut<Assets<LambertMaterial>>,
-) {
+fn spawn_basic_ui(mut egui_context: EguiContexts, mut material_settings: ResMut<MaterialSettings>) {
     if let Some(context) = egui_context.try_ctx_mut() {
         egui::Window::new("Basic Renderer")
             .vscroll(false)
@@ -138,36 +135,30 @@ fn spawn_basic_ui(
                 ui.label("Material");
 
                 ui.color_edit_button_rgb(&mut material_settings.as_mut().color);
-
-                // for (_, material) in materials.iter_mut() {
-                //     material.color = Vec3::from_array(material_settings.color);
-                // }
             });
     }
 }
 
-fn spawn_light_ui(
-    mut egui_context: EguiContexts,
-    mut light: ResMut<LightSettings>,
-    mut query: Query<&mut Transform, With<Light>>,
-) {
-    if let Ok(mut transform) = query.get_single_mut() {
-        if let Some(context) = egui_context.try_ctx_mut() {
-            egui::Window::new("Light Controls")
-                .vscroll(false)
-                .resizable(true)
-                .show(context, |ui| {
-                    ui.label("Light");
-    
-                    ui.horizontal(|ui| {
-                        ui.add(egui::DragValue::new(&mut transform.translation.x).speed(0.05));
-                        ui.add(egui::DragValue::new(&mut transform.translation.y).speed(0.05));
-                        ui.add(egui::DragValue::new(&mut transform.translation.z).speed(0.05));
-                    });
+fn spawn_light_ui(mut egui_context: EguiContexts, mut light: ResMut<LightSettings>) {
+    if let Some(context) = egui_context.try_ctx_mut() {
+        egui::Window::new("Light Controls")
+            .vscroll(false)
+            .resizable(true)
+            .show(context, |ui| {
+                ui.label("Light");
 
-                    ui.add(egui::DragValue::new(&mut light.intensity).speed(0.05));
+                ui.horizontal(|ui| {
+                    ui.add(egui::DragValue::new(&mut light.pos[0]).speed(0.05));
+                    ui.add(egui::DragValue::new(&mut light.pos[1]).speed(0.05));
+                    ui.add(egui::DragValue::new(&mut light.pos[2]).speed(0.05));
                 });
-        }
+
+                ui.add(
+                    egui::DragValue::new(&mut light.intensity)
+                        .speed(0.05)
+                        .range(0..=10),
+                );
+            });
     }
 }
 
@@ -179,7 +170,7 @@ fn save_ui_state(
     let file = File::create("ui_state.json");
     let state = UIState {
         renderer: *renderer_state.get(), // rename to use the simple object builder
-        
+
         material: *material_settings,
         light: *light,
     };
@@ -198,7 +189,6 @@ fn save_ui_state(
     }
 }
 
-/// print when an `AppState` transition happens
 fn log_transitions(mut transitions: EventReader<StateTransitionEvent<RendererState>>) {
     for transition in transitions.read() {
         info!(
