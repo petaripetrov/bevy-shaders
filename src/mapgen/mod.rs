@@ -5,8 +5,7 @@ use bevy::{
     core_pipeline::core_2d::Camera2d,
     ecs::system::{Commands, Query, Res, ResMut, Resource},
     math::{
-        primitives::Circle,
-        Dir2, Isometry2d, Rot2, Vec2, Vec3,
+        primitives::Circle, Vec3,
     },
     render::mesh::{Mesh, Mesh2d, MeshBuilder, Meshable},
     sprite::{ColorMaterial, MeshMaterial2d},
@@ -15,10 +14,7 @@ use bevy::{
     window::Window,
 };
 use rand::{
-    distr::{
-        uniform::{SampleUniform, UniformSampler},
-        Distribution, Uniform,
-    },
+    distr::Uniform,
     Rng, SeedableRng,
 };
 use rand_chacha::ChaCha8Rng;
@@ -59,7 +55,7 @@ fn draw_circles(
 
     for position in &point_res.0 {
         commands.spawn((
-            Mesh2d(meshes.add((CIRCLE.mesh().build()))),
+            Mesh2d(meshes.add(CIRCLE.mesh().build())),
             MeshMaterial2d(material.clone()),
             Transform::from_translation(*position),
         ));
@@ -94,7 +90,7 @@ fn setup(
     // mut materials: ResMut<Assets<ColorMaterial>>,
     // mut gizmos: Gizmos,
 ) {
-    let N = map_settings.num_cells;
+    let n = map_settings.num_cells;
     let window = window.single();
     let height = window.height();
     let width = window.width();
@@ -106,11 +102,11 @@ fn setup(
 
     if let Ok(distr) = uniform {
         let x_iter = rng.clone().sample_iter(distr);
-        let y_iter = rng.sample_iter(distr).skip(N);
+        let y_iter = rng.sample_iter(distr).skip(n);
 
         let points_iter = x_iter
             .zip(y_iter)
-            .take(N)
+            .take(n)
             .map(|(x, y)| Vec3::new(x * height, y * width, 0.0));
 
         point_res.0.extend(points_iter);
