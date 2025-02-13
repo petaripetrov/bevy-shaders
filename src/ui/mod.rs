@@ -5,13 +5,10 @@ use std::{
 };
 
 use bevy::{
-    app::{Plugin, Update},
-    log::{error, info, warn},
-    prelude::{
+    app::{Plugin, Update}, ecs::{entity::Entity, event::Event}, log::{error, info, warn}, prelude::{
         in_state, on_event, AppExtStates, EventReader, IntoSystemConfigs, NextState, Res, ResMut,
         Resource, State, StateTransitionEvent, States,
-    },
-    window::WindowCloseRequested,
+    }, window::WindowCloseRequested
 };
 use bevy_egui::{egui, EguiContexts, EguiPlugin};
 
@@ -36,13 +33,23 @@ pub struct LightSettings {
     pub intensity: f32,
 }
 
+#[derive(Default, Resource, Serialize, Deserialize, Clone, Copy)]
+pub struct MapgenSettings {
+    pub num_cells: usize,
+}
+
 #[derive(Default, Serialize, Deserialize)]
 struct UIState {
     demo: DemoState,
     renderer: RendererState,
+
+    mapgen: MapgenSettings,
     material: MaterialSettings,
     light: LightSettings,
 }
+
+#[derive(Event)]
+pub struct NumCellsUpdated(Entity);
 
 pub struct UIPlugin;
 
@@ -50,6 +57,7 @@ impl Plugin for UIPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         // Init EGUI
         app.add_plugins(EguiPlugin);
+        app.add_event::<NumCellsUpdated>();
         let file = File::open("ui_state.json");
 
         if let Ok(f) = file {
@@ -60,6 +68,8 @@ impl Plugin for UIPlugin {
                 Ok(state) => {
                     app.insert_resource(state.material);
                     app.insert_resource(state.light);
+                    app.insert_resource(state.mapgen);
+
                     app.insert_state(state.renderer);
                     app.insert_state(state.demo);
                 }
@@ -68,6 +78,8 @@ impl Plugin for UIPlugin {
                     warn!("Could not find UI State settings. Initializing with empty state");
                     app.init_resource::<MaterialSettings>();
                     app.init_resource::<LightSettings>();
+                    app.init_resource::<MapgenSettings>();
+
                     app.init_state::<DemoState>();
                     app.init_state::<RendererState>();
                 }
@@ -84,7 +96,10 @@ impl Plugin for UIPlugin {
             (
                 spawn_ui.before(spawn_basic_ui),
                 log_transitions,
+
                 (spawn_light_ui, spawn_basic_ui.run_if(in_state(RendererState::Basic))).run_if(in_state(DemoState::Renderer)),
+                (spawn_mapgen_ui).run_if(in_state(DemoState::Mapgen)),
+
                 save_ui_state.run_if(on_event::<WindowCloseRequested>),
             ),
         );
@@ -205,9 +220,32 @@ fn spawn_light_ui(mut egui_context: EguiContexts, mut light: ResMut<LightSetting
     }
 }
 
+
+
+fn spawn_mapgen_ui(mut egui_context: EguiContexts, mut mapgen_settings: ResMut<MapgenSettings>) {
+    if let Some(context) = egui_context.try_ctx_mut() {
+        egui::Window::new("Mapgen controls")
+            .vscroll(false)
+            .resizable(true)
+            .show(context, |ui| {
+                let settings = mapgen_settings.as_mut();
+                let mut parsed_num_cells = settings.num_cells.to_string();
+                
+                ui.label("Number of cells");
+                
+                if ui.text_edit_singleline(&mut parsed_num_cells).changed() {
+                    if let Ok(num) = parsed_num_cells.parse::<usize>() {
+                        settings.num_cells = num;
+                    } 
+                }
+            });
+    }
+}
+
 fn save_ui_state(
     material_settings: Res<MaterialSettings>,
     light: Res<LightSettings>,
+    mapgen: Res<MapgenSettings>,
     demo_state: Res<State<DemoState>>,
     renderer_state: Res<State<RendererState>>,
 ) {
@@ -218,6 +256,7 @@ fn save_ui_state(
 
         material: *material_settings,
         light: *light,
+        mapgen: *mapgen,
     };
 
     if let Ok(f) = file {
