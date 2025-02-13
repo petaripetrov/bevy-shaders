@@ -6,6 +6,7 @@ mod renderers;
 
 use bevy::prelude::*;
 
+use mapgen::MapgenPlugin;
 use renderers::RenderersPlugin;
 use serde::{Deserialize, Serialize};
 use ui::UIPlugin;
@@ -23,7 +24,8 @@ fn main() {
             DefaultPlugins,
             UIPlugin,
             RenderersPlugin,
+            MapgenPlugin
         ))
-        .init_state::<DemoState>()
+        // .init_state::<DemoState>()
         .run();
 }

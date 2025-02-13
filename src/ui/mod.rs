@@ -38,6 +38,7 @@ pub struct LightSettings {
 
 #[derive(Default, Serialize, Deserialize)]
 struct UIState {
+    demo: DemoState,
     renderer: RendererState,
     material: MaterialSettings,
     light: LightSettings,
@@ -60,11 +61,14 @@ impl Plugin for UIPlugin {
                     app.insert_resource(state.material);
                     app.insert_resource(state.light);
                     app.insert_state(state.renderer);
+                    app.insert_state(state.demo);
                 }
                 Err(_) => {
+                    // TODO Honestly just merge this and main 
                     warn!("Could not find UI State settings. Initializing with empty state");
                     app.init_resource::<MaterialSettings>();
                     app.init_resource::<LightSettings>();
+                    app.init_state::<DemoState>();
                     app.init_state::<RendererState>();
                 }
             };
@@ -204,10 +208,12 @@ fn spawn_light_ui(mut egui_context: EguiContexts, mut light: ResMut<LightSetting
 fn save_ui_state(
     material_settings: Res<MaterialSettings>,
     light: Res<LightSettings>,
+    demo_state: Res<State<DemoState>>,
     renderer_state: Res<State<RendererState>>,
 ) {
     let file = File::create("ui_state.json");
     let state = UIState {
+        demo: *demo_state.get(),
         renderer: *renderer_state.get(), // rename to use the simple object builder
 
         material: *material_settings,

@@ -49,14 +49,16 @@ pub struct RenderersPlugin;
 
 impl Plugin for RenderersPlugin {
     fn build(&self, app: &mut bevy::app::App) {
+        // Load shaders
         app.add_plugins((
             MaterialPlugin::<LambertMaterial>::default(),
             MaterialPlugin::<LightMaterial>::default(),
         ));
 
+        // Load systems
         app.add_systems(OnEnter(DemoState::Renderer), (setup, spawn_light));
         app.add_systems(Update, (set_light_pos).run_if(in_state(DemoState::Renderer)));
-        app.add_systems(OnExit(DemoState::Renderer), (clean_up));
+        app.add_systems(OnExit(DemoState::Renderer), clean_up);
     }
 }
 
@@ -83,9 +85,9 @@ fn setup(
         Transform::from_xyz(0.0, 0.5, 0.0),
     ));
 
-    commands.spawn((PointLight {
+    commands.spawn(PointLight {
         ..Default::default()
-    }));
+    });
 
     commands.spawn((
         Renderer,
