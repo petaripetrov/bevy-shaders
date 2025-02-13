@@ -15,6 +15,8 @@ use bevy::{
 };
 use bevy_egui::{egui, EguiContexts, EguiPlugin};
 
+use crate::DemoState;
+
 #[derive(Default, States, Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum RendererState {
     #[default]
@@ -77,9 +79,8 @@ impl Plugin for UIPlugin {
             Update,
             (
                 spawn_ui.before(spawn_basic_ui),
-                spawn_light_ui,
-                spawn_basic_ui.run_if(in_state(RendererState::Basic)),
                 log_transitions,
+                (spawn_light_ui, spawn_basic_ui.run_if(in_state(RendererState::Basic))).run_if(in_state(DemoState::Renderer)),
                 save_ui_state.run_if(on_event::<WindowCloseRequested>),
             ),
         );
@@ -89,39 +90,77 @@ impl Plugin for UIPlugin {
 // EguiContexts is an alias for a Query type
 fn spawn_ui(
     mut egui_context: EguiContexts,
-    state: Res<State<RendererState>>,
-    mut state_trans: ResMut<NextState<RendererState>>,
+    demo_state: Res<State<DemoState>>,
+    renderer_state: Res<State<RendererState>>,
+    mut render_trans: ResMut<NextState<RendererState>>,
+    mut demo_trans: ResMut<NextState<DemoState>>,
 ) {
     if let Some(context) = egui_context.try_ctx_mut() {
-        let mut curr_state = *state.get();
-        egui::Window::new("Render Controls")
+        // let mut curr_state = *renderer_state.get();
+
+        let mut curr_state = *demo_state.get();
+
+        egui::Window::new("Demo Controls")
             .vscroll(false)
             .resizable(true)
             .show(context, |ui| {
-                egui::ComboBox::from_label("Renderer")
-                    .selected_text(format!("{:?}", curr_state))
-                    .show_ui(ui, |ui| {
-                        if ui
-                            .selectable_value(&mut curr_state, RendererState::Basic, "Basic")
-                            .changed()
-                        {
-                            state_trans.set(RendererState::Basic);
-                        }
 
-                        if ui
-                            .selectable_value(&mut curr_state, RendererState::Toon, "Toon")
-                            .changed()
-                        {
-                            state_trans.set(RendererState::Toon);
-                        }
+                egui::ComboBox::from_label("Demo")
+                .selected_text(format!("{:?}", curr_state))
+                .show_ui(ui, |ui| {
+                    if ui
+                        .selectable_value(
+                            &mut curr_state,
+                            DemoState::Renderer,
+                            "Renderer",
+                        )
+                        .changed()
+                    {
+                        demo_trans.set(DemoState::Renderer);
+                    }
 
-                        if ui
-                            .selectable_value(&mut curr_state, RendererState::Pbr, "PBR")
-                            .changed()
-                        {
-                            state_trans.set(RendererState::Pbr);
-                        }
-                    });
+                    if ui
+                        .selectable_value(&mut curr_state, DemoState::Mapgen, "Mapgen")
+                        .changed()
+                    {
+                        demo_trans.set(DemoState::Mapgen);
+                    }
+                });
+
+                match curr_state {
+                    DemoState::Renderer => {
+                        let mut renderer_state = *renderer_state.get();
+                        egui::ComboBox::from_label("Renderer")
+                            .selected_text(format!("{:?}", renderer_state))
+                            .show_ui(ui, |ui| {
+                                if ui
+                                    .selectable_value(
+                                        &mut renderer_state,
+                                        RendererState::Basic,
+                                        "Basic",
+                                    )
+                                    .changed()
+                                {
+                                    render_trans.set(RendererState::Basic);
+                                }
+
+                                if ui
+                                    .selectable_value(&mut renderer_state, RendererState::Toon, "Toon")
+                                    .changed()
+                                {
+                                    render_trans.set(RendererState::Toon);
+                                }
+
+                                if ui
+                                    .selectable_value(&mut renderer_state, RendererState::Pbr, "PBR")
+                                    .changed()
+                                {
+                                    render_trans.set(RendererState::Pbr);
+                                }
+                            });
+                    }
+                    DemoState::Mapgen => {},
+                }
             });
     }
 }
