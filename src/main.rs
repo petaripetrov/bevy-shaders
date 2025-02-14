@@ -46,6 +46,8 @@ impl Material for LightMaterial {
 }
 
 fn main() {
+    let test = 0;
+
     App::new()
         .add_plugins((
             DefaultPlugins,
