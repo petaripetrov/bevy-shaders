@@ -68,7 +68,7 @@ fn setup(
 ) {
     // Cube mesh
     commands.spawn((
-        Mesh3d(meshes.add(Cuboid::default())),
+        Mesh3d(meshes.add(Sphere::default())),
         MeshMaterial3d(materials.add(LambertMaterial {
             color: Vec3::from_array(ui_mat.color),
             light_pos: Vec3::new(0.8, 1.0, 0.5),
