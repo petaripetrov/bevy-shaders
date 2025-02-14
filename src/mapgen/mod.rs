@@ -13,6 +13,7 @@ use bevy::{
     transform::components::Transform,
     window::Window,
 };
+use bevy_egui::egui::emath::Numeric;
 use rand::{
     distr::Uniform,
     Rng, SeedableRng,
@@ -84,16 +85,12 @@ fn setup(
     mut commands: Commands,
     mut rng_src: ResMut<RNG>,
     mut point_res: ResMut<Points>,
-    window: Query<&Window>,
     map_settings: Res<MapgenSettings>
     // mut meshes: ResMut<Assets<Mesh>>,
     // mut materials: ResMut<Assets<ColorMaterial>>,
     // mut gizmos: Gizmos,
 ) {
     let n = map_settings.num_cells;
-    let window = window.single();
-    let height = window.height();
-    let width = window.width();
     let rng = &mut rng_src.0;
 
     commands.spawn(Camera2d);
@@ -107,7 +104,7 @@ fn setup(
         let points_iter = x_iter
             .zip(y_iter)
             .take(n)
-            .map(|(x, y)| Vec3::new(x * height, y * width, 0.0));
+            .map(|(x, y)| Vec3::new(x * 300.0, y * 300.0, 0.0));
 
         point_res.0.extend(points_iter);
     }
